@@ -8,19 +8,15 @@
 #include <string>
 #include <vector>
 
-#pragma comment(lib, "Ws2_32.lib")
-
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#pragma comment(lib, "libssl.lib")   // set exact names depending on your OpenSSL build
+#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "libssl.lib")
 #pragma comment(lib, "libcrypto.lib")
 #pragma comment(lib, "sqlite3.lib")
 
 using namespace std;
-
-// Change these to actual installed paths in your VS project settings (Linker/VC++ dirs)
-// Note: the pragma comments above require the .lib names to be available to the linker.
 
 static void init_winsock()
 {
@@ -40,7 +36,6 @@ static void cleanup_winsock()
 
 static SSL_CTX* create_ssl_ctx(const char* cert_file, const char* key_file)
 {
-    // Init OpenSSL
     SSL_library_init();
     OpenSSL_add_all_algorithms();
     SSL_load_error_strings();
@@ -53,7 +48,6 @@ static SSL_CTX* create_ssl_ctx(const char* cert_file, const char* key_file)
         return nullptr;
     }
 
-    // Load certificate and private key
     if (SSL_CTX_use_certificate_file(ctx, cert_file, SSL_FILETYPE_PEM) <= 0)
     {
         std::cerr << "SSL_CTX_use_certificate_file failed\n";
@@ -80,8 +74,6 @@ static SSL_CTX* create_ssl_ctx(const char* cert_file, const char* key_file)
     return ctx;
 }
 
-// Read until "\r\n\r\n" — minimal header read
-// Returns true on success, and leaves any extra bytes (after headers) in leftover.
 string read_http_path_from_ssl(SSL* ssl)
 {
     char buf[4096];
@@ -189,7 +181,6 @@ int main()
         return 1;
     }
 
-    // Create listening socket
     SOCKET listenSock = INVALID_SOCKET;
     addrinfo hints{}, * res = nullptr;
     hints.ai_family = AF_INET;
@@ -216,7 +207,6 @@ int main()
         return 1;
     }
 
-    // allow address reuse
     BOOL yes = TRUE;
     setsockopt(listenSock, SOL_SOCKET, SO_REUSEADDR, (const char*)&yes, sizeof(yes));
 
@@ -254,7 +244,6 @@ int main()
 
         std::cout << "Client connected\n";
 
-        // Create SSL object
         SSL* ssl = SSL_new(ctx);
         if (!ssl)
         {
@@ -263,11 +252,6 @@ int main()
             continue;
         }
 
-        // IMPORTANT:
-        // OpenSSL APIs expect a file-descriptor (int). Many examples cast SOCKET to int.
-        // On Windows x64 SOCKET is 64-bit; casting to int can be unsafe if SOCKET value exceeds 32-bit.
-        // In practice, small socket handles usually fit in 32-bit, but for maximum portability a custom BIO
-        // using SOCKET would be preferable. For simplicity in this example we use BIO_new_socket.
         BIO* sbio = BIO_new_socket((int)clientSock, BIO_NOCLOSE);
         SSL_set_bio(ssl, sbio, sbio);
 
