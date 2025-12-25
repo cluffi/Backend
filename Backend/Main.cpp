@@ -274,12 +274,10 @@ int main()
         parse_query(query, keys, values);
 
         string body;
+        cout << keys[1];
 
         if (values.size() > 1)
-            if (values[0] == "game" && values[1] == "name")
-                body = get_achievement(values[0], values[1]);
-            else
-                body = "";
+            body = get_achievement(values[0], values[1]);
         else
             body = "";
 
