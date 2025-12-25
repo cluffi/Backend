@@ -25,13 +25,8 @@ static void init_winsock()
     if (rv != 0)
     {
          cerr << "WSAStartup failed: " << rv << "\n";
-        exit(1);
+         exit(1);
     }
-}
-
-static void cleanup_winsock()
-{
-    WSACleanup();
 }
 
 static SSL_CTX* create_ssl_ctx(const char* cert_file, const char* key_file)
@@ -50,7 +45,7 @@ static SSL_CTX* create_ssl_ctx(const char* cert_file, const char* key_file)
 
     if (SSL_CTX_use_certificate_file(ctx, cert_file, SSL_FILETYPE_PEM) <= 0)
     {
-        std::cerr << "SSL_CTX_use_certificate_file failed\n";
+        cerr << "SSL_CTX_use_certificate_file failed\n";
         ERR_print_errors_fp(stderr);
         SSL_CTX_free(ctx);
         return nullptr;
@@ -58,7 +53,7 @@ static SSL_CTX* create_ssl_ctx(const char* cert_file, const char* key_file)
 
     if (SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM) <= 0)
     {
-        std::cerr << "SSL_CTX_use_PrivateKey_file failed\n";
+        cerr << "SSL_CTX_use_PrivateKey_file failed\n";
         ERR_print_errors_fp(stderr);
         SSL_CTX_free(ctx);
         return nullptr;
@@ -66,7 +61,7 @@ static SSL_CTX* create_ssl_ctx(const char* cert_file, const char* key_file)
 
     if (!SSL_CTX_check_private_key(ctx))
     {
-        std::cerr << "Private key does not match the certificate public key\n";
+        cerr << "Private key does not match the certificate public key\n";
         SSL_CTX_free(ctx);
         return nullptr;
     }
@@ -77,7 +72,7 @@ static SSL_CTX* create_ssl_ctx(const char* cert_file, const char* key_file)
 string read_http_path_from_ssl(SSL* ssl)
 {
     char buf[4096];
-    std::string accum;
+    string accum;
 
     while (true)
     {
@@ -99,7 +94,7 @@ string read_http_path_from_ssl(SSL* ssl)
         
         if (accum.size() > 64 * 1024)
         {
-            std::cerr << "Headers too large\n";
+            cerr << "Headers too large\n";
             return "";
         }
     }
@@ -113,7 +108,7 @@ string get_achievement(const string& game_name, const string& achievement_name)
 
     if (sqlite3_open("Achievements.db", &db) != SQLITE_OK)
     {
-        std::cerr << "SQLite open error: "
+        cerr << "SQLite open error: "
             << sqlite3_errmsg(db) << "\n";
         return "";
     }
@@ -177,7 +172,7 @@ int main()
     SSL_CTX* ctx = create_ssl_ctx(cert_file, key_file);
     if (!ctx)
     {
-        cleanup_winsock();
+        WSACleanup();
         return 1;
     }
 
@@ -191,19 +186,19 @@ int main()
     int rv = getaddrinfo("localhost", "8443", &hints, &res);
     if (rv != 0)
     {
-        std::cerr << "getaddrinfo failed: " << rv << "\n";
+        cerr << "getaddrinfo failed: " << rv << "\n";
         SSL_CTX_free(ctx);
-        cleanup_winsock();
+        WSACleanup();
         return 1;
     }
 
     listenSock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if (listenSock == INVALID_SOCKET)
     {
-        std::cerr << "socket failed: " << WSAGetLastError() << "\n";
+        cerr << "socket failed: " << WSAGetLastError() << "\n";
         freeaddrinfo(res);
         SSL_CTX_free(ctx);
-        cleanup_winsock();
+        WSACleanup();
         return 1;
     }
 
@@ -212,42 +207,42 @@ int main()
 
     if (bind(listenSock, res->ai_addr, (int)res->ai_addrlen) == SOCKET_ERROR)
     {
-        std::cerr << "bind failed: " << WSAGetLastError() << "\n";
+        cerr << "bind failed: " << WSAGetLastError() << "\n";
         closesocket(listenSock);
         freeaddrinfo(res);
         SSL_CTX_free(ctx);
-        cleanup_winsock();
+        WSACleanup();
         return 1;
-    }
+    } 
 
     freeaddrinfo(res);
 
     if (listen(listenSock, SOMAXCONN) == SOCKET_ERROR)
     {
-        std::cerr << "listen failed: " << WSAGetLastError() << "\n";
+        cerr << "listen failed: " << WSAGetLastError() << "\n";
         closesocket(listenSock);
         SSL_CTX_free(ctx);
-        cleanup_winsock();
+        WSACleanup();
         return 1;
     }
 
-    std::cout << "Listening on localhost:8443\n";
+    cout << "Listening on localhost:8443\n";
 
     while (true)
     {
         SOCKET clientSock = accept(listenSock, nullptr, nullptr);
         if (clientSock == INVALID_SOCKET)
         {
-            std::cerr << "accept failed: " << WSAGetLastError() << "\n";
+            cerr << "accept failed: " << WSAGetLastError() << "\n";
             break;
         }
 
-        std::cout << "Client connected\n";
+        cout << "Client connected\n";
 
         SSL* ssl = SSL_new(ctx);
         if (!ssl)
         {
-            std::cerr << "SSL_new failed\n";
+            cerr << "SSL_new failed\n";
             closesocket(clientSock);
             continue;
         }
@@ -257,7 +252,7 @@ int main()
 
         if (SSL_accept(ssl) <= 0)
         {
-            std::cerr << "SSL_accept failed\n";
+            cerr << "SSL_accept failed\n";
             ERR_print_errors_fp(stderr);
             SSL_free(ssl);
             closesocket(clientSock);
@@ -265,13 +260,13 @@ int main()
         }
 
         string http = read_http_path_from_ssl(ssl);
-        std::string first_line = http.substr(0, http.find("\r\n"));
+        string first_line = http.substr(0, http.find("\r\n"));
 
         size_t sp1 = first_line.find(' ');
         size_t sp2 = first_line.find(' ', sp1 + 1);
-        std::string url = first_line.substr(sp1 + 1, sp2 - sp1 - 1);
+        string url = first_line.substr(sp1 + 1, sp2 - sp1 - 1);
         size_t q = url.find('?');
-        string query = (q == std::string::npos) ? "" : url.substr(q + 1);
+        string query = (q == string::npos) ? "" : url.substr(q + 1);
 
         vector<string> keys;
         vector<string> values;
@@ -281,7 +276,10 @@ int main()
         string body;
 
         if (values.size() > 1)
-            body = get_achievement(values[0], values[1]);
+            if (values[0] == "game" && values[1] == "name")
+                body = get_achievement(values[0], values[1]);
+            else
+                body = "";
         else
             body = "";
 
@@ -297,11 +295,11 @@ int main()
         SSL_free(ssl);
         closesocket(clientSock);
 
-        std::cout << "Client handled\n";
+        cout << "Client handled\n";
     }
 
     closesocket(listenSock);
     SSL_CTX_free(ctx);
-    cleanup_winsock();
+    WSACleanup();
     return 0;
 }
